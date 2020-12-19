@@ -29,15 +29,18 @@ const verifyPassword = (reqpass) => {
 }
 
 /**
- * 处理请求消息，无论是application/json还是application/x-www-form-urlencoded都可以处理。
+ * 处理请求消息，application/json
  * @param {Request} req 请求的数据
  */
 const handleRequest = async (request) => {
-    const { headers } = request;
-    const contentType = headers.get("content-type") || "";
+
     let password, serverName, eventType, eventDuration;
 
-    if (contentType.includes("application/json")) {
+    /*
+    const { headers } = request;
+    const contentType = headers.get("content-type") || headers.get("Content-Type") || "";
+    
+    if (contentType.includes("json")) {
         const data = await request.json();
         password      = data.password;
         serverName    = data.monitorFriendlyName;
@@ -50,6 +53,13 @@ const handleRequest = async (request) => {
         eventType     = data['alertType'];
         eventDuration = data['alertDuration'];
     }
+    */
+
+    const data = await request.json();
+    password      = data.password;
+    serverName    = data.monitorFriendlyName;
+    eventType     = data.alertType;
+    eventDuration = data.alertDuration;
   
     if (verifyPassword(password)) {
         // 发送服务器数据
@@ -74,13 +84,13 @@ const getTimeString = (tsec) => {
     const minutes = dt.getUTCMinutes();
     const seconds = dt.getUTCSeconds();
     if (hours) {
-        timeStr += hours + '小时';
+        timeStr += `${hours}小时`;
     }
     if (minutes) {
-        timeStr += minutes + '分钟';
+        timeStr += `${minutes}分钟`;
     }
     if (seconds) {
-        timeStr += minutes + '秒';
+        timeStr += `${seconds}秒`;
     }
     return timeStr;
 };
@@ -97,23 +107,26 @@ const sendEventMsg = async (serverName, eventType, eventDuration) => {
         return;
     }
 
+    const simbolsReg = /(\.|\+|\-)/g;
+    const serverNameEscaped = serverName.replace(simbolsReg, '\\$&');
+
     const botApi = `https://api.telegram.org/bot${tgBotToken}/sendMessage`;
     let info;
     
     // 准备消息
     switch (eventType) {
         // 1: down, 2: up, 3: SSL expiry notification
-        case 1: // Boom!
-            info = `坏耶，*${serverName}*出问题了欸...`;
+        case "1": // Boom!
+            info = `坏耶， *${serverNameEscaped}* 出问题了欸\\.\\.\\.`;
             break;
-        case 2: // 恢复
-            info = `好耶，经过 _${getTimeString(eventDuration)}_ 的维护， *${serverName}* 恢复上线啦～`;
+        case "2": // 恢复
+            info = `好耶，经过 _${getTimeString(eventDuration)}_ 的维护， *${serverNameEscaped}* 恢复上线啦～`;
             break;
-        case 3: // 证书过期
-            info = `要注意哦，*${serverName}*的证书过期啦..`;
+        case "3": // 证书过期
+            info = `要注意哦， *${serverNameEscaped}* 的证书过期啦\\.\\.`;
             break;
         default: // 错误
-            info = `出现了一个异常的请求类型**${eventType}**，是什么新的特性吗？`;
+            info = `出现了一个异常的请求类型 *${eventType}* ，是什么新的特性吗？`;
             break;
     }
 
